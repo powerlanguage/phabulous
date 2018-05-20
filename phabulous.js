@@ -32,6 +32,13 @@ var ACTIONS_REGEX = /([\s\S]*?)[\n\r][\n\r]/
 var TITLE_REGEX = /: (.*)/
 var URL_REGEX = /REVISION DETAIL\s*(https:\/\/phabricator.*.com\/.*)/
 
+var TRACKED_ACTIONS = [
+  "requested review",
+  "added a comment",
+  "added inline comments",
+  "accepted this revision",
+  "requested changes to this revision",
+];
 
 function isBuildMessage(sender, body) {
   return sender === 'jenkins' || (sender === 'Phabricator' && body.indexOf('Harbormaster') > -1);
@@ -49,14 +56,6 @@ function checkRegex(pattern, target, type) {
     return "UNKNOWN " + type;
   }
 }
-
-var TRACKED_ACTIONS = [
-  "requested review",
-  "added a comment",
-  "added inline comments",
-  "accepted this revision",
-  "requested changes to this revision",
-];
 
 // Takes multiple lines of actions and filter to ones that begin with the
 // sender's name and that we track. This allows the message sent to slack to be
@@ -77,6 +76,14 @@ function filterActions(actions, sender) {
     }, [])
 }
 
+function formatActions(actions) {
+  if(actions && actions.length > 0) {
+    return actions.join(', ').toLowerCase().replace(/,(?=[^,]*$)/, ' and');
+  } else {
+    return '';
+  }
+}
+
 function parsePhabricatorEmail(email) {
   var details = {};
   details.body = email.getBody();
@@ -90,14 +97,6 @@ function parsePhabricatorEmail(email) {
   details.actions = filterActions(checkRegex(ACTIONS_REGEX, details.body, 'ACTIONS'), details.sender);
   details.formattedActions = formatActions(details.actions);
   return details;
-}
-
-function formatActions(actions) {
-  if(actions && actions.length > 0) {
-    return actions.join(', ').toLowerCase().replace(/,(?=[^,]*$)/, ' and');
-  } else {
-    return '';
-  }
 }
 
 function phabulous() {
@@ -114,25 +113,21 @@ function phabulous() {
       if (email.isUnread()) {
         var details = parsePhabricatorEmail(email);
 
-        // If I own this diff, notify me of everything (except builds)
-        if(details.diffOwner === MY_LDAP) {
-          if(!details.isBuildMessage) {
-            outgoingEmail.subject = details.sender + ' ' + details.formattedActions + ': ' + details.diffTitle;
-            outgoingEmail.body = details.diffUrl;
-          }
-        } else {
+        if(details.diffOwner === MY_LDAP && !details.isBuildMessage) {
+          // If I own this diff, notify me of everything (except builds)
+          outgoingEmail.subject = details.sender + ' ' + details.formattedActions + ': ' + details.diffTitle;
+          outgoingEmail.body = details.diffUrl;
+        } else if(details.formattedActions.indexOf('requested review') > -1) {
           // If I don't own this diff, only notify me of requests for review
-          if(details.formattedActions.indexOf('requested review') > -1) {
-            outgoingEmail.subject = details.sender + ' ' + details.formattedActions + ': ' + details.diffTitle;
-            outgoingEmail.body = details.diffUrl;
-          }
+          outgoingEmail.subject = details.sender + ' ' + details.formattedActions + ': ' + details.diffTitle;
+          outgoingEmail.body = details.diffUrl;
         }
 
         if(outgoingEmail.subject && outgoingEmail.body) {
           sendNotificationEmail(outgoingEmail);
         }
 
-        // mark as read so we don't process again
+        // mark as read so we don't process this email again
         email.markRead();
       }
     })
