@@ -28,7 +28,7 @@ var BATCH_SIZE = 10;
 
 var OWNER_REGEX = /To:\s([a-zA-Z0-9]*)/
 var SENDER_REGEX = /^"?(\w*)/
-var ACTION_REGEX = /\[.*\] \[(.*)\]/
+var ACTIONS_REGEX = /([\s\S]*?)[\n\r][\n\r]/
 var TITLE_REGEX = /: (.*)/
 var URL_REGEX = /REVISION DETAIL\s*(https:\/\/phabricator.*.com\/.*)/
 
@@ -37,8 +37,8 @@ function isBuildMessage(sender, body) {
   return sender === 'jenkins' || (sender === 'Phabricator' && body.indexOf('Harbormaster') > -1);
 }
 
-function sendNotificationEmail(subject, body) {
-  GmailApp.sendEmail(SLACK_FORWARD_ADDRESS, subject, body);
+function sendNotificationEmail(email) {
+  GmailApp.sendEmail(SLACK_FORWARD_ADDRESS, email.subject, email.body);
 }
 
 function checkRegex(pattern, target, type) {
@@ -50,6 +50,33 @@ function checkRegex(pattern, target, type) {
   }
 }
 
+var TRACKED_ACTIONS = [
+  "requested review",
+  "added a comment",
+  "added inline comments",
+  "accepted this revision",
+  "requested changes to this revision",
+];
+
+// Takes multiple lines of actions and filter to ones that begin with the
+// sender's name and that we track. This allows the message sent to slack to be
+// more descriptive.
+function filterActions(actions, sender) {
+  return actions.split('\n')
+    .filter(function(action){
+      return action.indexOf(sender) === 0;
+    })
+    .reduce(function(acc, action){
+      TRACKED_ACTIONS.forEach(function(trackedAction){
+        if (action.indexOf(trackedAction) > -1) {
+          // TODO: use a string map for more naturally readable actions
+          acc.push(trackedAction);
+        }
+      })
+      return acc
+    }, [])
+}
+
 function parsePhabricatorEmail(email) {
   var details = {};
   details.body = email.getBody();
@@ -57,16 +84,30 @@ function parsePhabricatorEmail(email) {
   details.subject = email.getSubject();
   details.diffOwner = checkRegex(OWNER_REGEX, details.body, 'OWNER')
   details.sender = checkRegex(SENDER_REGEX, details.from, 'SENDER');
-  details.action = checkRegex(ACTION_REGEX, details.subject, 'ACTION');
   details.diffTitle = checkRegex(TITLE_REGEX, details.subject, 'TITLE');
   details.diffUrl = checkRegex(URL_REGEX, details.body, 'URL');
   details.isBuildMessage = isBuildMessage(details.sender, details.body);
+  details.actions = filterActions(checkRegex(ACTIONS_REGEX, details.body, 'ACTIONS'), details.sender);
+  details.formattedActions = formatActions(details.actions);
   return details;
+}
+
+function formatActions(actions) {
+  if(actions && actions.length > 0) {
+    return actions.join(', ').toLowerCase().replace(/,(?=[^,]*$)/, ' and');
+  } else {
+    return '';
+  }
 }
 
 function phabulous() {
   var query = 'label:' + PHABRICATOR_GMAIL_LABEL +' AND label:unread';
   var threads = GmailApp.search(query, 0, BATCH_SIZE);
+
+  var outgoingEmail = {
+    subject: '',
+    body: '',
+  }
 
   threads.forEach(function(thread) {
     thread.getMessages().forEach(function(email) {
@@ -76,19 +117,22 @@ function phabulous() {
         // If I own this diff, notify me of everything (except builds)
         if(details.diffOwner === MY_LDAP) {
           if(!details.isBuildMessage) {
-            var subject = details.sender + ' ' + details.action.toLowerCase() + ' ' + details.diffTitle;
-            var body = details.diffUrl;
-            sendNotificationEmail(subject, body);
+            outgoingEmail.subject = details.sender + ' ' + details.formattedActions + ': ' + details.diffTitle;
+            outgoingEmail.body = details.diffUrl;
           }
         } else {
           // If I don't own this diff, only notify me of requests for review
-          if(details.action.indexOf('Request') > -1) {
-            var subject = details.sender + ' requested your review on ' + details.diffTitle;
-            var body = details.diffUrl;
-            sendNotificationEmail(subject, body);
+          if(details.formattedActions.indexOf('requested review') > -1) {
+            outgoingEmail.subject = details.sender + ' ' + details.formattedActions + ': ' + details.diffTitle;
+            outgoingEmail.body = details.diffUrl;
           }
         }
-        // <ark as read so we don't process again
+
+        if(outgoingEmail.subject && outgoingEmail.body) {
+          sendNotificationEmail(outgoingEmail);
+        }
+
+        // mark as read so we don't process again
         email.markRead();
       }
     })
