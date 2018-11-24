@@ -89,23 +89,32 @@ export default class PhabricatorEmail implements ParsedEmail {
   filterActions(actions, sender) {
     return actions
       .split("\n")
-      .filter(function(action) {
-        return action.indexOf(sender) === 0;
-      })
-      .reduce(function(acc, action) {
-        TRACKED_ACTIONS.forEach(function(trackedAction) {
-          if (action.indexOf(trackedAction) > -1) {
+      .filter(action => action.indexOf(sender) === 0)
+      .reduce((acc, action) => {
+        TRACKED_ACTIONS.forEach(trackedAction => {
+          if (action.indexOf(trackedAction) !== -1) {
             // TODO: use a string map for more naturally readable actions
             acc.push(trackedAction);
           }
         });
+
         return acc;
       }, []);
   }
 
   formatActions(actions) {
     if (actions && actions.length > 0) {
+      const vistedActions = {};
+
       return actions
+        .filter(action => {
+          if (vistedActions[action]) {
+            return false;
+          }
+
+          vistedActions[action] = true;
+          return true;
+        })
         .join(", ")
         .toLowerCase()
         .replace(/,(?=[^,]*$)/, " and");
