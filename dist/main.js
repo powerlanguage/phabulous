@@ -168,7 +168,7 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony export (binding) */ __webpack_require__.d(__webpack_exports__, "default", function() { return EmailHandler; });
 /* harmony import */ var _Users_btraut_code_phabulous_node_modules_babel_runtime_helpers_esm_classCallCheck__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ./node_modules/@babel/runtime/helpers/esm/classCallCheck */ "./node_modules/@babel/runtime/helpers/esm/classCallCheck.js");
 /* harmony import */ var _Users_btraut_code_phabulous_node_modules_babel_runtime_helpers_esm_createClass__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! ./node_modules/@babel/runtime/helpers/esm/createClass */ "./node_modules/@babel/runtime/helpers/esm/createClass.js");
-var EmailHandler=/*#__PURE__*/function(){function EmailHandler(){Object(_Users_btraut_code_phabulous_node_modules_babel_runtime_helpers_esm_classCallCheck__WEBPACK_IMPORTED_MODULE_0__["default"])(this,EmailHandler);this.handlers=[];}Object(_Users_btraut_code_phabulous_node_modules_babel_runtime_helpers_esm_createClass__WEBPACK_IMPORTED_MODULE_1__["default"])(EmailHandler,[{key:"addHandler",value:function addHandler(handler){this.handlers.push(handler);}},{key:"handleEmail",value:function handleEmail(email){for(var i=0;i<this.handlers.length;++i){var handler=this.handlers[i];var handled=handler(email);if(handled){return true;}}return false;}}]);return EmailHandler;}();
+var EmailHandler=/*#__PURE__*/function(){function EmailHandler(){Object(_Users_btraut_code_phabulous_node_modules_babel_runtime_helpers_esm_classCallCheck__WEBPACK_IMPORTED_MODULE_0__["default"])(this,EmailHandler);this.handlers=[];}Object(_Users_btraut_code_phabulous_node_modules_babel_runtime_helpers_esm_createClass__WEBPACK_IMPORTED_MODULE_1__["default"])(EmailHandler,[{key:"addHandler",value:function addHandler(handler){this.handlers.push(handler);}},{key:"handleEmail",value:function handleEmail(email){for(var i=0;i<this.handlers.length;++i){var handler=this.handlers[i];var handled=handler(email);if(handled){return;}}}}]);return EmailHandler;}();
 
 /***/ }),
 
@@ -295,7 +295,7 @@ var phabulous=function phabulous(){// Create a parser and add the email types we
 // that's just Phabricator emails.
 var emailParser=new _EmailParser__WEBPACK_IMPORTED_MODULE_1__["default"]();emailParser.addParser(_emails_PhabricatorEmail__WEBPACK_IMPORTED_MODULE_3__["default"].parseEmail);// Create a handler and add some Phabricator email handlers.
 var emailHandler=new _EmailHandler__WEBPACK_IMPORTED_MODULE_2__["default"]();emailHandler.addHandler(_handlers_notifyForMyDiffsHandler__WEBPACK_IMPORTED_MODULE_4__["default"]);emailHandler.addHandler(_handlers_notifyForRequestForReview__WEBPACK_IMPORTED_MODULE_5__["default"]);// Fetch mail from Gmail and proccess it into new messages.
-_Fetcher__WEBPACK_IMPORTED_MODULE_0__["default"].fetchEmailThreads().forEach(function(thread){thread.getMessages().filter(function(email){return email.isUnread();}).forEach(function(email){var parsedEmail=emailParser.parseEmail(email);var handled=emailHandler.handleEmail(parsedEmail);if(handled){email.markRead();}});});};
+_Fetcher__WEBPACK_IMPORTED_MODULE_0__["default"].fetchEmailThreads().forEach(function(thread){thread.getMessages().filter(function(email){return email.isUnread();}).forEach(function(email){var parsedEmail=emailParser.parseEmail(email);emailHandler.handleEmail(parsedEmail);email.markRead();});});};
 
 /***/ }),
 

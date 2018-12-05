@@ -23,11 +23,8 @@ export const phabulous = () => {
       .filter(email => email.isUnread())
       .forEach(email => {
         const parsedEmail = emailParser.parseEmail(email);
-        const handled = emailHandler.handleEmail(parsedEmail);
-
-        if (handled) {
-          email.markRead();
-        }
+        emailHandler.handleEmail(parsedEmail);
+        email.markRead();
       });
   });
 };
