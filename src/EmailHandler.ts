@@ -15,10 +15,8 @@ export default class EmailHandler {
       const handled = handler(email);
 
       if (handled) {
-        return true;
+        return;
       }
     }
-
-    return false;
   }
 }
