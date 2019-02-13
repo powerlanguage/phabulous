@@ -6,7 +6,7 @@ To use:
 
 1. Set Phabricator emails to plaintext.
 2. Add a native Gmail filter to label and archive all incoming phabricator emails.
-3. Copy the script in dist/main.js into a new Google Script project and edit the config section at the top of the script.
+3. Copy the script in dist/main.js into a new [Google Script project](https://developers.google.com/apps-script/guides/projects) and edit the config section at the top of the script.
 4. Add a trigger to call the "run" function in this script every minute.
 
 To develop:
